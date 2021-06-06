@@ -4,4 +4,4 @@ save my shell scripts and dockerfiles
 
 ## Todo
 
-- add remove_binary.sh usage
+- add remove\_binary.sh "/" remover.
