@@ -1,3 +1,3 @@
 #!/bin/bash
-
-powershell.exe Start-Process -FilePath Chrome ${1}
+FILEPATH=Z:\\`pwd`/
+powershell.exe Start-Process -FilePath Chrome $FILEPATH${1}
