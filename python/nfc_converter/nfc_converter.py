@@ -25,13 +25,15 @@ class nfc_converter():
     
 
     @staticmethod
-    def get_converted_string(string_convert: str):
+    def get_converted_string(string_convert: str) -> str:
         converted_string = unicodedata.normalize('NFC',string_convert)
         return converted_string
 
-    def convert_texts(self,text_list: List[str]):
+    def convert_texts(self,text_list: List[str]) -> str:
         converted_string_list = [self.get_converted_string(t) for t in text_list]
-        return converted_string_list
+        
+        for converted_text in converted_string_list:
+            print(converted_text)
 
     def convert_save_file_name(self,file_path_list: List[str]) -> None:
         renamed_count = 0
@@ -60,6 +62,3 @@ class nfc_converter():
 
 if __name__ == "__main__" :
     cvt = nfc_converter()
-    
-    
-    
