@@ -14,6 +14,7 @@ LOG_GLOB_PATTERN: str = DIGIT * 4 + '-' + DIGIT * 2 + '-' + DIGIT * 2 + LOG_EXT
 
 logs: List[str] = sorted(glob(LOG_DIR + '/' + LOG_GLOB_PATTERN))
 
+
 for log_file in logs:
     with open(log_file, 'r') as opened_log_file:
         day_log: List = json.load(opened_log_file)
@@ -25,5 +26,3 @@ for log_file in logs:
                 continue
 
             send_time: datetime = datetime.fromtimestamp(float(msg["ts"]))
-            print(content)
-            print('\n---------------------------------------------------\n')
