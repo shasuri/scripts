@@ -12,17 +12,32 @@ LOG_EXT: str = ".json"
 LOG_GLOB_PATTERN: str = DIGIT * 4 + '-' + DIGIT * 2 + '-' + DIGIT * 2 + LOG_EXT
 # LOG_REGEX_PATTERN = \d{4}-\d{2}-\d{2}.json
 
-logs: List[str] = sorted(glob(LOG_DIR + '/' + LOG_GLOB_PATTERN))
+
+def slack_commit():
+    log_files: List[str] = get_logs(LOG_DIR, LOG_GLOB_PATTERN)
+    analyze_log_files(log_files)
 
 
-for log_file in logs:
-    with open(log_file, 'r') as opened_log_file:
-        day_log: List = json.load(opened_log_file)
+def get_logs(log_path: str, log_pattern: str) -> List[str]:
+    return sorted(glob(log_path + '/' + log_pattern))
 
-        for msg in day_log:
-            content: str = msg["text"]
 
-            if not content.startswith(PATCH_DELIMETER):
-                continue
+def analyze_log_files(log_files: List[str]):
+    for day_log_file in log_files:
+        with open(day_log_file, 'r') as day_log:
+            day_log_loaded: List[str] = json.load(day_log)
+            extract_patch_info(day_log_loaded)
 
-            send_time: datetime = datetime.fromtimestamp(float(msg["ts"]))
+
+def extract_patch_info(messages: str):
+    for msg in messages:
+        content: str = msg["text"]
+
+        if not content.startswith(PATCH_DELIMETER):
+            continue
+
+        send_time: datetime = datetime.fromtimestamp(float(msg["ts"]))
+
+
+if __name__ == "__main__":
+    slack_commit()
