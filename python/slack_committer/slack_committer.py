@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 from typing import List, Dict, Union
 
-JsonObject = Dict[str, str | int | float]
+JsonObject = Dict[str, Union[str, int, float]]
 JsonArray = List[JsonObject]
 # JsonMsg = Dict[str, str]
 
@@ -49,14 +49,15 @@ class User:
 
 def slack_commit():
     log_files: List[str] = get_log_files(LOG_DIR, LOG_GLOB_PATTERN)
-    analyze_log_files(log_files)
+
+    analyzed_log: AnalyzedLog = analyze_log_files(log_files)
 
 
 def get_log_files(log_path: str, log_pattern: str) -> List[str]:
     return sorted(glob(log_path + '/' + log_pattern))
 
 
-def analyze_log_files(log_files: List[str]) -> List[PatchNote]:
+def analyze_log_files(log_files: List[str]) -> AnalyzedLog:
     patch_notes: List[PatchNote] = list()
     user_map: Dict[str, str] = dict()
 
@@ -75,7 +76,7 @@ def analyze_log_files(log_files: List[str]) -> List[PatchNote]:
                 if is_patch_note(msg):
                     patch_notes.append(get_patch_note(msg))
 
-    return patch_notes
+    return AnalyzedLog(patch_notes, user_map)
 
 
 def is_user_profile_included(msg: JsonObject) -> bool:
