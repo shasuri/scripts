@@ -10,7 +10,7 @@ JsonArray = List[JsonObject]
 
 
 LOG_DIR: str = "/home/ghimmk/scripts/python/slack_committer/db_log"
-USERS_LIST: str = "//home/ghimmk/scripts/python/slack_committer/db_log/users.json"
+USERS_LIST: str = "//home/ghimmk/scripts/python/slack_committer/db_log/users.jsn"
 REPO_DIR: str = "/home/ghimmk/keeper_homepage/Homepage-Database"
 
 DIGIT: str = "[0-9]"
@@ -22,8 +22,7 @@ LOG_GLOB_PATTERN: str = YEAR + '-' + MONTH + '-' + DAY + LOG_EXT
 
 PATCH_DELIMETER: str = "keeper_db"
 
-WHOLE_USER_MAP: Dict[str, str]
-USER_ID_PATTERN: str = r"(<@)(U[A-Z0-9]{10})(>)"
+USER_ID_REG_PATTERN: str = r"(<@)(U[A-Z0-9]{10})(>)"
 
 
 class PatchNote:
@@ -57,8 +56,8 @@ class User:
 
 def slack_commit():
     log_files: List[str] = get_log_files(LOG_DIR, LOG_GLOB_PATTERN)
-    set_whole_user_map(USERS_LIST)
-    analyzed_log: AnalyzedLog = analyze_log_files(log_files)
+    user_map: Dict[str, str] = get_user_map(USERS_LIST)
+    analyzed_log: AnalyzedLog = analyze_log_files(log_files, user_map)
 
     convert_patch_notes_format(analyzed_log)
 
@@ -69,24 +68,24 @@ def get_log_files(log_path: str, log_pattern: str) -> List[str]:
     return sorted(glob(log_path + '/' + log_pattern))
 
 
-def set_whole_user_map(users_list_file: str) -> Dict[str, str]:
-    whole_user_map: Dict[str, str] = dict()
-
-    with open(users_list_file, 'r') as users_list:
-        users_array: JsonArray = json.load(users_list)
-
-        for u in users_array:
-            whole_user_map[u["id"]] = u["name"]
-
-    global WHOLE_USER_MAP
-    WHOLE_USER_MAP = whole_user_map
-
-
-def analyze_log_files(log_files: List[str]) -> AnalyzedLog:
-    patch_notes: List[PatchNote] = list()
+def get_user_map(users_list_file: str) -> Dict[str, str]:
     user_map: Dict[str, str] = dict()
 
-    user_id: str
+    try:
+        with open(users_list_file, 'r') as users_list:
+            users_array: JsonArray = json.load(users_list)
+
+            for u in users_array:
+                user_map[u["id"]] = u["name"]
+
+    except FileNotFoundError as f:
+        print(f"{f} : File not found")
+
+    return user_map
+
+
+def analyze_log_files(log_files: List[str], user_map: Dict[str, str]) -> AnalyzedLog:
+    patch_notes: List[PatchNote] = list()
     user: User
 
     for day_log_file in log_files:
@@ -94,14 +93,8 @@ def analyze_log_files(log_files: List[str]) -> AnalyzedLog:
             messages: JsonArray = json.load(day_log)
 
             for msg in messages:
-                user_id = msg["user"]
-
-                if user_id not in user_map:
-                    if is_user_profile_included(msg):
-                        user = get_user_from_profile(msg)
-
-                    elif is_user_exist(user_id):
-                        user = get_user_from_map(user_id)
+                if is_user_profile_included(msg) and msg["user"] not in user_map:
+                    user = get_user_from_profile(msg)
                     user_map[user.uid] = user.name
 
                 if is_patch_note(msg):
@@ -119,14 +112,6 @@ def get_user_from_profile(msg: JsonObject) -> User:
     user_name = msg["user_profile"]["name"]
 
     return User(user_id, user_name)
-
-
-def is_user_exist(user_id: str) -> bool:
-    return (user_id in WHOLE_USER_MAP)
-
-
-def get_user_from_map(user_id: str) -> User:
-    return User(user_id, WHOLE_USER_MAP[user_id])
 
 
 def is_patch_note(msg: JsonObject) -> bool:
@@ -170,17 +155,14 @@ def replace_lgt_to_symbol(content: str) -> str:
 
 
 def convert_userid_to_username(content: str, user_map: Dict[str, str]) -> str:
-    for user_id, user_name in user_map.items():
-        content = content.replace("<@" + user_id + ">", '@' + user_name)
-        content = replace_by_regex_pattern(content)
-
+    content = replace_by_regex_pattern(content, user_map)
     return content
 
 
-def replace_by_regex_pattern(content: str) -> str:
+def replace_by_regex_pattern(content: str, user_map: Dict[str, str]) -> str:
     return re.sub(
-        USER_ID_PATTERN,
-        lambda m: f"@{WHOLE_USER_MAP[m.group(1)]}",
+        USER_ID_REG_PATTERN,
+        lambda m: f"@{user_map.get(m.group(2))}",
         content)
 
 
