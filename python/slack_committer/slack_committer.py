@@ -1,16 +1,14 @@
-import fnmatch
-import os
 from glob import glob
 import json
 from datetime import datetime
+from pprint import pprint
 from typing import List, Dict, Union
 
 JsonObject = Dict[str, Union[str, int, float]]
 JsonArray = List[JsonObject]
-# JsonMsg = Dict[str, str]
 
 
-LOG_DIR: str = "/home/ghimmk/db_log"
+LOG_DIR: str = "/home/ghimmk/scripts/python/slack_committer/db_log"
 
 DIGIT: str = "[0-9]"
 YEAR: str = DIGIT * 4
@@ -18,9 +16,7 @@ MONTH: str = DIGIT * 2
 DAY: str = DIGIT * 2
 LOG_EXT: str = ".json"
 LOG_GLOB_PATTERN: str = YEAR + '-' + MONTH + '-' + DAY + LOG_EXT
-# LOG_REGEX_PATTERN = \d{4}-\d{2}-\d{2}.json
 
-# ANY_DIGIT: str = "*([0-9])"
 PATCH_DELIMETER: str = "keeper_db"
 
 
@@ -57,6 +53,8 @@ def slack_commit():
     log_files: List[str] = get_log_files(LOG_DIR, LOG_GLOB_PATTERN)
 
     analyzed_log: AnalyzedLog = analyze_log_files(log_files)
+
+    convert_patch_notes_format(analyzed_log.patch_notes)
 
 
 def get_log_files(log_path: str, log_pattern: str) -> List[str]:
@@ -103,9 +101,35 @@ def is_patch_note(msg: JsonObject) -> bool:
 def get_patch_note(msg: JsonObject) -> PatchNote:
     content: str = msg["text"]
     send_time: datetime = datetime.fromtimestamp(float(msg["ts"]))
-    uploaded_files: List[str] = [f["name"] for f in msg["files"]]
+
+    uploaded_files: List[str] = [f["name"]
+                                 for f in msg["files"]
+                                 if "name" in f]
 
     return PatchNote(content, send_time, uploaded_files)
+
+
+def convert_patch_notes_format(patch_notes: List[PatchNote]):
+    for p in patch_notes:
+        p.content = convert_to_plaintext(p.content)
+
+
+def convert_to_plaintext(content: str) -> str:
+    content = replace_lgt_to_symbol(content)
+    content = replace_dot_to_bar(content)
+
+    return content
+
+
+def replace_dot_to_bar(content: str) -> str:
+    return content.replace('•', '-')\
+        .replace('◦', '-')\
+        .replace('▪︎', '-')
+
+
+def replace_lgt_to_symbol(content: str) -> str:
+    return content.replace("&gt;", '>')\
+        .replace("&lt;", '<')
 
 
 if __name__ == "__main__":
