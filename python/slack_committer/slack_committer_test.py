@@ -3,6 +3,13 @@ import slack_committer
 import fnmatch
 from pprint import pprint
 from typing import List, Dict
+from optparse import OptionParser
+
+
+parser = OptionParser()
+parser.add_option("-l", action="store_true",
+                  dest="log_mode", help="print logs")
+(options, args) = parser.parse_args()
 
 
 class StringPatternTester(unittest.TestCase):
@@ -20,8 +27,8 @@ class StringPatternTester(unittest.TestCase):
             "text": "keeper_db 1.10.0 ~ 1.11.0\n• content 컬럼들의 자료형이 수정되었습니다."
         }
 
-        self.assertTrue(is_patch_note(j1))
-        self.assertTrue(is_patch_note(j2))
+        self.assertTrue(slack_committer.is_patch_note(j1))
+        self.assertTrue(slack_committer.is_patch_note(j2))
 
 
 class ConvertTester(unittest.TestCase):
@@ -42,12 +49,12 @@ class ConvertTester(unittest.TestCase):
 
 
 def print_patch_notes():
-    log_files: List[str] = slack_committer.get_log_files(
-        slack_committer.LOG_DIR, slack_committer.LOG_GLOB_PATTERN)
-    # print(log_files)
-    slack_committer.set_whole_user_map(slack_committer.USERS_LIST)
+
     analyzed_log: slack_committer.AnalyzedLog = slack_committer.analyze_log_files(
-        log_files)
+        slack_committer.get_log_files(
+            slack_committer.LOG_DIR, slack_committer.LOG_GLOB_PATTERN),
+        slack_committer.get_user_map(slack_committer.USERS_LIST))
+
     slack_committer.convert_patch_notes_format(analyzed_log)
     for p in analyzed_log.patch_notes:
         print(p.send_time)
@@ -56,9 +63,10 @@ def print_patch_notes():
         print("\n===========================\n")
 
     pprint(analyzed_log.user_map)
-    pprint(slack_committer.WHOLE_USER_MAP)
 
 
 if __name__ == "__main__":
-    unittest.main()
-    # print_patch_notes()
+    if options.log_mode:
+        print_patch_notes()
+    else:
+        unittest.main()
