@@ -2,12 +2,14 @@ from glob import glob
 import json
 from datetime import datetime
 from typing import List, Dict, Union
+from git import Repo
 
 JsonObject = Dict[str, Union[str, int, float]]
 JsonArray = List[JsonObject]
 
 
 LOG_DIR: str = "/home/ghimmk/scripts/python/slack_committer/db_log"
+REPO_DIR: str = "/home/ghimmk/keeper_homepage/Homepage-Database"
 
 DIGIT: str = "[0-9]"
 YEAR: str = DIGIT * 4
@@ -55,6 +57,8 @@ def slack_commit():
 
     add_user_manually(analyzed_log.user_map)
     convert_patch_notes_format(analyzed_log)
+
+    commit_patch_notes(REPO_DIR, analyzed_log.patch_notes)
 
 
 def get_log_files(log_path: str, log_pattern: str) -> List[str]:
@@ -109,7 +113,7 @@ def get_patch_note(msg: JsonObject) -> PatchNote:
     return PatchNote(content, send_time, uploaded_files)
 
 
-def add_user_manually(user_map: Dict[str, str]):
+def add_user_manually(user_map: Dict[str, str]) -> None:
     manual_users = {
         "U02S5FDQ6TB": "koty08"
     }
@@ -147,6 +151,20 @@ def convert_userid_to_username(content: str, user_map: Dict[str, str]) -> str:
         content = content.replace("<@" + user_id + ">", '@' + user_name)
 
     return content
+
+
+def commit_patch_notes(repo_path: str, patch_notes: List[PatchNote]) -> None:
+    repo: Repo = Repo(repo_path)
+    send_time_str: str
+
+    for p in patch_notes:
+        repo.git.add(p.uploaded_files)
+
+        send_time_str = p.send_time.strftime('%Y-%m-%d %H:%M:%S')
+
+        repo.index.commit(p.content,
+                          commit_date=send_time_str,
+                          author_date=send_time_str)
 
 
 if __name__ == "__main__":
