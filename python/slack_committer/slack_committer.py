@@ -9,6 +9,7 @@ JsonArray = List[JsonObject]
 
 
 LOG_DIR: str = "/home/ghimmk/scripts/python/slack_committer/db_log"
+USERS_LIST: str = "//home/ghimmk/scripts/python/slack_committer/db_log/users.json"
 REPO_DIR: str = "/home/ghimmk/keeper_homepage/Homepage-Database"
 
 DIGIT: str = "[0-9]"
@@ -19,6 +20,8 @@ LOG_EXT: str = ".json"
 LOG_GLOB_PATTERN: str = YEAR + '-' + MONTH + '-' + DAY + LOG_EXT
 
 PATCH_DELIMETER: str = "keeper_db"
+
+WHOLE_USER_MAP: Dict[str, str]
 
 
 class PatchNote:
@@ -42,33 +45,46 @@ class AnalyzedLog:
 
 
 class User:
-    code: str
+    uid: str
     name: str
 
-    def __init__(self, code: str, name: str) -> None:
-        self.code = code
+    def __init__(self, uid: str, name: str) -> None:
+        self.uid = uid
         self.name = name
 
 
 def slack_commit():
     log_files: List[str] = get_log_files(LOG_DIR, LOG_GLOB_PATTERN)
-
+    set_whole_user_map(USERS_LIST)
     analyzed_log: AnalyzedLog = analyze_log_files(log_files)
 
-    add_user_manually(analyzed_log.user_map)
     convert_patch_notes_format(analyzed_log)
 
-    commit_patch_notes(REPO_DIR, analyzed_log.patch_notes)
+    # commit_patch_notes(REPO_DIR, analyzed_log.patch_notes)
 
 
 def get_log_files(log_path: str, log_pattern: str) -> List[str]:
     return sorted(glob(log_path + '/' + log_pattern))
 
 
+def set_whole_user_map(users_list_file: str) -> Dict[str, str]:
+    whole_user_map: Dict[str, str] = dict()
+
+    with open(users_list_file, 'r') as users_list:
+        users_array: JsonArray = json.load(users_list)
+
+        for u in users_array:
+            whole_user_map[u["id"]] = u["name"]
+
+    global WHOLE_USER_MAP
+    WHOLE_USER_MAP = whole_user_map
+
+
 def analyze_log_files(log_files: List[str]) -> AnalyzedLog:
     patch_notes: List[PatchNote] = list()
     user_map: Dict[str, str] = dict()
 
+    user_id: str
     user: User
 
     for day_log_file in log_files:
@@ -76,10 +92,15 @@ def analyze_log_files(log_files: List[str]) -> AnalyzedLog:
             messages: JsonArray = json.load(day_log)
 
             for msg in messages:
+                user_id = msg["user"]
 
-                if is_user_profile_included(msg) and msg["user"] not in user_map:
-                    user = get_user_map(msg)
-                    user_map[user.code] = user.name
+                if user_id not in user_map:
+                    if is_user_profile_included(msg):
+                        user = get_user_from_profile(msg)
+
+                    elif is_user_exist(user_id):
+                        user = get_user_from_map(user_id)
+                    user_map[user.uid] = user.name
 
                 if is_patch_note(msg):
                     patch_notes.append(get_patch_note(msg))
@@ -91,11 +112,19 @@ def is_user_profile_included(msg: JsonObject) -> bool:
     return ("user_profile" in msg)
 
 
-def get_user_map(msg: JsonObject) -> User:
-    code = msg["user"]
-    name = msg["user_profile"]["name"]
+def get_user_from_profile(msg: JsonObject) -> User:
+    user_id = msg["user"]
+    user_name = msg["user_profile"]["name"]
 
-    return User(code, name)
+    return User(user_id, user_name)
+
+
+def is_user_exist(user_id: str) -> bool:
+    return (user_id in WHOLE_USER_MAP)
+
+
+def get_user_from_map(user_id: str) -> User:
+    return User(user_id, WHOLE_USER_MAP[user_id])
 
 
 def is_patch_note(msg: JsonObject) -> bool:
@@ -111,14 +140,6 @@ def get_patch_note(msg: JsonObject) -> PatchNote:
                                  if "name" in f]
 
     return PatchNote(content, send_time, uploaded_files)
-
-
-def add_user_manually(user_map: Dict[str, str]) -> None:
-    manual_users = {
-        "U02S5FDQ6TB": "koty08"
-    }
-
-    user_map.update(manual_users)
 
 
 def convert_patch_notes_format(analyzed_log: AnalyzedLog) -> None:
