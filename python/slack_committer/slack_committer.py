@@ -3,6 +3,7 @@ import json
 from datetime import datetime
 from typing import List, Dict, Union
 from git import Repo
+import re
 
 JsonObject = Dict[str, Union[str, int, float]]
 JsonArray = List[JsonObject]
@@ -22,6 +23,7 @@ LOG_GLOB_PATTERN: str = YEAR + '-' + MONTH + '-' + DAY + LOG_EXT
 PATCH_DELIMETER: str = "keeper_db"
 
 WHOLE_USER_MAP: Dict[str, str]
+USER_ID_PATTERN: str = r"(<@)(U[A-Z0-9]{10})(>)"
 
 
 class PatchNote:
@@ -170,8 +172,16 @@ def replace_lgt_to_symbol(content: str) -> str:
 def convert_userid_to_username(content: str, user_map: Dict[str, str]) -> str:
     for user_id, user_name in user_map.items():
         content = content.replace("<@" + user_id + ">", '@' + user_name)
+        content = replace_by_regex_pattern(content)
 
     return content
+
+
+def replace_by_regex_pattern(content: str) -> str:
+    return re.sub(
+        USER_ID_PATTERN,
+        lambda m: f"@{WHOLE_USER_MAP[m.group(1)]}",
+        content)
 
 
 def commit_patch_notes(repo_path: str, patch_notes: List[PatchNote]) -> None:
