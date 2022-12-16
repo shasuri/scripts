@@ -1,7 +1,6 @@
 from glob import glob
 import json
 from datetime import datetime
-from pprint import pprint
 from typing import List, Dict, Union
 
 JsonObject = Dict[str, Union[str, int, float]]
@@ -54,7 +53,8 @@ def slack_commit():
 
     analyzed_log: AnalyzedLog = analyze_log_files(log_files)
 
-    convert_patch_notes_format(analyzed_log.patch_notes)
+    add_user_manually(analyzed_log.user_map)
+    convert_patch_notes_format(analyzed_log)
 
 
 def get_log_files(log_path: str, log_pattern: str) -> List[str]:
@@ -89,7 +89,7 @@ def is_user_profile_included(msg: JsonObject) -> bool:
 
 def get_user_map(msg: JsonObject) -> User:
     code = msg["user"]
-    name = msg["user_profile"]["real_name"]
+    name = msg["user_profile"]["name"]
 
     return User(code, name)
 
@@ -109,9 +109,19 @@ def get_patch_note(msg: JsonObject) -> PatchNote:
     return PatchNote(content, send_time, uploaded_files)
 
 
-def convert_patch_notes_format(patch_notes: List[PatchNote]):
-    for p in patch_notes:
+def add_user_manually(user_map: Dict[str, str]):
+    manual_users = {
+        "U02S5FDQ6TB": "koty08"
+    }
+
+    user_map.update(manual_users)
+
+
+def convert_patch_notes_format(analyzed_log: AnalyzedLog) -> None:
+    for p in analyzed_log.patch_notes:
         p.content = convert_to_plaintext(p.content)
+        p.content = convert_userid_to_username(
+            p.content, analyzed_log.user_map)
 
 
 def convert_to_plaintext(content: str) -> str:
@@ -130,6 +140,13 @@ def replace_dot_to_bar(content: str) -> str:
 def replace_lgt_to_symbol(content: str) -> str:
     return content.replace("&gt;", '>')\
         .replace("&lt;", '<')
+
+
+def convert_userid_to_username(content: str, user_map: Dict[str, str]) -> str:
+    for user_id, user_name in user_map.items():
+        content = content.replace("<@" + user_id + ">", '@' + user_name)
+
+    return content
 
 
 if __name__ == "__main__":

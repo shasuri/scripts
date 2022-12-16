@@ -44,7 +44,7 @@ def print_patch_notes():
     log_files: List[str] = get_log_files(LOG_DIR, LOG_GLOB_PATTERN)
     # print(log_files)
     analyzed_log: AnalyzedLog = analyze_log_files(log_files)
-
+    add_user_manually(analyzed_log.user_map)
     convert_patch_notes_format(analyzed_log)
     for p in analyzed_log.patch_notes:
         print(p.content)
