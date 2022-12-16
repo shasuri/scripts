@@ -1,1 +1,4 @@
 db_log
+test.py
+*.pyc
+

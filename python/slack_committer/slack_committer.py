@@ -1,3 +1,4 @@
+import fnmatch
 import os
 from glob import glob
 import json
@@ -9,13 +10,18 @@ JsonArray = List[JsonObject]
 # JsonMsg = Dict[str, str]
 
 
-PATCH_DELIMETER: str = "keeper_db"
 LOG_DIR: str = "/home/ghimmk/db_log"
 
 DIGIT: str = "[0-9]"
+YEAR: str = DIGIT * 4
+MONTH: str = DIGIT * 2
+DAY: str = DIGIT * 2
 LOG_EXT: str = ".json"
-LOG_GLOB_PATTERN: str = DIGIT * 4 + '-' + DIGIT * 2 + '-' + DIGIT * 2 + LOG_EXT
+LOG_GLOB_PATTERN: str = YEAR + '-' + MONTH + '-' + DAY + LOG_EXT
 # LOG_REGEX_PATTERN = \d{4}-\d{2}-\d{2}.json
+
+# ANY_DIGIT: str = "*([0-9])"
+PATCH_DELIMETER: str = "keeper_db"
 
 
 class PatchNote:
