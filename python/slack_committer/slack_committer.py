@@ -115,9 +115,12 @@ def get_patch_notes_json_format(patch_notes: List[PatchNote]) -> JsonArray:
 
 def commit_imported_patch_notes(import_path: str) -> None:
     with open(import_path, 'r') as file_imported:
-        patch_notes_imported: JsonArray = json.load(file_imported)
+        patch_notes_imported_json: JsonArray = json.load(file_imported)
 
-    # commit_patch_notes(REPO_DIR, PatchNote(patch_notes_imported))
+        patch_notes: List[PatchNote] = [
+            PatchNote(p) for p in patch_notes_imported_json]
+
+        # commit_patch_notes(REPO_DIR, PatchNote(patch_notes))
 
 
 def get_log_files(log_path: str, log_pattern: str) -> List[str]:
