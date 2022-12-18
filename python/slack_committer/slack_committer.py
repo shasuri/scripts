@@ -47,7 +47,7 @@ parser.add_argument("-p", "--print", action="store_true",
                     dest="print_mode", help="print all patch notes")
 
 parser.add_argument("-r", "--recent", action="store_true",
-                    dest="stage_recent", help="stage on recent init file")
+                    dest="stage_recent", help="stage on recent file")
 
 args = parser.parse_args()
 
@@ -261,7 +261,13 @@ def stage_uploaded_files(repo: Repo, patch_note: PatchNote) -> None:
     origin_dir: str = get_origin_dir()
     recent_file: str
 
-    os.mkdir(staged_dir)
+    try:
+        os.mkdir(staged_dir)
+    except FileExistsError as ee:
+        print(f"{ee} : {staged_dir} already exists. Make dir process will be passed.")
+    except FileNotFoundError as nfe:
+        print(f"{nfe} : {staged_dir} path is not found. Exit this function.")
+        return
 
     move_uploaded_files(patch_note.uploaded_files, origin_dir, staged_dir)
 
@@ -270,7 +276,8 @@ def stage_uploaded_files(repo: Repo, patch_note: PatchNote) -> None:
     if args.stage_recent:
         recent_file = get_recent_file(patch_note.uploaded_files)
         if recent_file:
-            copy_recent_init_file(recent_file, staged_dir)
+            copy_recent_file(recent_file, staged_dir)
+            repo.git.add(f"{REPO_DIR}/{RECENT_FILE_NAME}")
 
 
 def get_origin_dir() -> str:
@@ -290,7 +297,7 @@ def get_recent_file(uploaded_files: List[str]) -> str:
     return ""
 
 
-def copy_recent_init_file(recent_file: str, staged_dir: str) -> None:
+def copy_recent_file(recent_file: str, staged_dir: str) -> None:
     shutil.copy(f"{staged_dir}/{recent_file}",
                 f"{REPO_DIR}/{RECENT_FILE_NAME}")
 
