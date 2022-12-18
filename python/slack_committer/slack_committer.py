@@ -1,9 +1,10 @@
+import os
+import argparse
 import json
 import re
-from datetime import datetime
 from glob import glob
 from git import Repo
-import argparse
+from datetime import datetime
 from typing import List, Dict, Union
 from colorama import Fore
 
@@ -90,7 +91,7 @@ class User:
 
 def slack_commit(patch_notes: PatchNotes):
     pass
-    # commit_patch_notes(REPO_DIR, analyzed_log.patch_notes)
+    # commit_patch_notes(REPO_DIR, patch_notes)
 
 
 def get_patch_notes() -> PatchNotes:
@@ -235,13 +236,25 @@ def commit_patch_notes(repo_path: str, patch_notes: PatchNotes) -> None:
     send_time_str: str
 
     for p in patch_notes:
-        repo.git.add(p.uploaded_files)
-
         send_time_str = p.send_time.strftime(DATETIME_FORMAT)
+
+        stage_uploaded_files(repo, p)
 
         repo.index.commit(p.content,
                           commit_date=send_time_str,
                           author_date=send_time_str)
+
+
+def stage_uploaded_files(repo: Repo, patch_note: PatchNote) -> None:
+    staged_date: str = patch_note.send_time.strftime("%Y-%m-%d")
+    staged_dir: str = repo.working_tree_dir + '/' + staged_date
+
+    os.mkdir(staged_dir)
+
+    for f in patch_note.uploaded_files:
+        os.replace(f, staged_dir + '/' + f)
+
+    repo.git.add(staged_dir)
 
 
 def print_patch_notes(patch_notes: PatchNotes) -> None:
