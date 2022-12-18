@@ -1,16 +1,17 @@
-from glob import glob
 import json
-from datetime import datetime
-from typing import List, Dict, Union
-from git import Repo
 import re
+from datetime import datetime
+from glob import glob
+from git import Repo
+import argparse
+from typing import List, Dict, Union
 
 JsonObject = Dict[str, Union[str, int, float]]
 JsonArray = List[JsonObject]
 
 
 LOG_DIR: str = "/home/ghimmk/scripts/python/slack_committer/db_log"
-USERS_LIST: str = "//home/ghimmk/scripts/python/slack_committer/db_log/users.jsn"
+USERS_LIST: str = "/home/ghimmk/scripts/python/slack_committer/db_log/users.json"
 REPO_DIR: str = "/home/ghimmk/keeper_homepage/Homepage-Database"
 
 DIGIT: str = "[0-9]"
@@ -23,6 +24,23 @@ LOG_GLOB_PATTERN: str = YEAR + '-' + MONTH + '-' + DAY + LOG_EXT
 PATCH_DELIMETER: str = "keeper_db"
 
 USER_ID_REG_PATTERN: str = r"(<@)(U[A-Z0-9]{10})(>)"
+DATETIME_FORMAT: str = "%Y-%m-%d %H:%M:%S"
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--export", action="store",
+                    dest="file_export", help="export json array of PatchNote class")
+
+parser.add_argument("--import", action="store",
+                    dest="file_import", help="import json array of PatchNote class")
+
+parser.add_argument("--log", action="store_true",
+                    dest="log_mode", help="print all log")
+
+parser.add_argument("--fileinfo", action="store_true",
+                    dest="fileinfo_mode", help="print file info")
+
+
+args = parser.parse_args()
 
 
 class PatchNote:
@@ -34,6 +52,12 @@ class PatchNote:
         self.content = content
         self.send_time = send_time
         self.uploaded_files = uploaded_files
+
+    def to_dict(self):
+        patch_note_dict = self.__dict__
+        patch_note_dict["send_time"] = self.send_time.strftime(DATETIME_FORMAT)
+
+        return patch_note_dict
 
 
 class AnalyzedLog:
@@ -55,13 +79,36 @@ class User:
 
 
 def slack_commit():
+    patch_notes: List[PatchNote] = get_patch_notes()
+
+    # commit_patch_notes(REPO_DIR, analyzed_log.patch_notes)
+
+
+def get_patch_notes() -> List[PatchNote]:
     log_files: List[str] = get_log_files(LOG_DIR, LOG_GLOB_PATTERN)
     user_map: Dict[str, str] = get_user_map(USERS_LIST)
     analyzed_log: AnalyzedLog = analyze_log_files(log_files, user_map)
-
     convert_patch_notes_format(analyzed_log)
 
-    # commit_patch_notes(REPO_DIR, analyzed_log.patch_notes)
+    return analyzed_log.patch_notes
+
+
+def export_patch_notes(export_path: str) -> None:
+    patch_notes: List[PatchNote] = get_patch_notes()
+    patch_notes_json: JsonArray = get_patch_notes_json_format(patch_notes)
+
+    with open(export_path, 'w', encoding="utf-8") as f:
+        f.write(patch_notes_json)
+
+
+def get_patch_notes_json_format(patch_notes: List[PatchNote]) -> JsonArray:
+    return json.dumps(
+        [p.to_dict() for p in patch_notes],
+        indent=2, ensure_ascii=False)
+
+
+def commit_imported_patch_notes(import_path: str):
+    pass
 
 
 def get_log_files(log_path: str, log_pattern: str) -> List[str]:
@@ -173,7 +220,7 @@ def commit_patch_notes(repo_path: str, patch_notes: List[PatchNote]) -> None:
     for p in patch_notes:
         repo.git.add(p.uploaded_files)
 
-        send_time_str = p.send_time.strftime('%Y-%m-%d %H:%M:%S')
+        send_time_str = p.send_time.strftime(DATETIME_FORMAT)
 
         repo.index.commit(p.content,
                           commit_date=send_time_str,
@@ -181,4 +228,20 @@ def commit_patch_notes(repo_path: str, patch_notes: List[PatchNote]) -> None:
 
 
 if __name__ == "__main__":
-    slack_commit()
+
+    if args.file_export:
+        print(f"export : {args.file_export}")
+        export_patch_notes(args.file_export)
+
+    elif args.file_import:
+        print(f"import : {args.file_import}")
+
+    else:
+        # full process
+        slack_commit()
+
+    if args.log_mode:
+        pass
+
+    if args.fileinfo_mode:
+        pass
