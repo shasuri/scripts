@@ -5,6 +5,7 @@ from glob import glob
 from git import Repo
 import argparse
 from typing import List, Dict, Union
+from colorama import Fore
 
 JsonObject = Dict[str, Union[str, int, float, List, Dict]]
 JsonArray = List[JsonObject]
@@ -27,14 +28,14 @@ USER_ID_REG_PATTERN: str = r"(<@)(U[A-Z0-9]{10})(>)"
 DATETIME_FORMAT: str = "%Y-%m-%d %H:%M:%S"
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--export", action="store",
+parser.add_argument("-e", "--export", action="store",
                     dest="file_export", help="export json array of PatchNote class")
 
-parser.add_argument("--import", action="store",
+parser.add_argument("-i", "--import", action="store",
                     dest="file_import", help="import json array of PatchNote class")
 
-parser.add_argument("--log", action="store_true",
-                    dest="log_mode", help="print all log")
+parser.add_argument("-p", "--print", action="store_true",
+                    dest="print_mode", help="print all patch notes")
 
 args = parser.parse_args()
 
@@ -66,11 +67,14 @@ class PatchNote:
         return cls
 
 
+PatchNotes = List[PatchNote]
+
+
 class AnalyzedLog:
-    patch_notes: List[PatchNote]
+    patch_notes: PatchNotes
     user_map: Dict[str, str]
 
-    def __init__(self, patch_notes: List[PatchNote], user_map: Dict[str, str]) -> None:
+    def __init__(self, patch_notes: PatchNotes, user_map: Dict[str, str]) -> None:
         self.patch_notes = patch_notes
         self.user_map = user_map
 
@@ -84,13 +88,12 @@ class User:
         self.name = name
 
 
-def slack_commit():
-    patch_notes: List[PatchNote] = get_patch_notes()
-
+def slack_commit(patch_notes: PatchNotes):
+    pass
     # commit_patch_notes(REPO_DIR, analyzed_log.patch_notes)
 
 
-def get_patch_notes() -> List[PatchNote]:
+def get_patch_notes() -> PatchNotes:
     log_files: List[str] = get_log_files(LOG_DIR, LOG_GLOB_PATTERN)
     user_map: Dict[str, str] = get_user_map(USERS_LIST)
     analyzed_log: AnalyzedLog = analyze_log_files(log_files, user_map)
@@ -99,28 +102,27 @@ def get_patch_notes() -> List[PatchNote]:
     return analyzed_log.patch_notes
 
 
-def export_patch_notes(export_path: str) -> None:
-    patch_notes: List[PatchNote] = get_patch_notes()
+def export_patch_notes(export_path: str, patch_notes: PatchNotes) -> None:
     patch_notes_json: JsonArray = get_patch_notes_json_format(patch_notes)
 
     with open(export_path, 'w') as file_exported:
         file_exported.write(patch_notes_json)
 
 
-def get_patch_notes_json_format(patch_notes: List[PatchNote]) -> JsonArray:
+def get_patch_notes_json_format(patch_notes: PatchNotes) -> JsonArray:
     return json.dumps(
         [p.to_dict() for p in patch_notes],
         indent=2, ensure_ascii=False)
 
 
-def commit_imported_patch_notes(import_path: str) -> None:
+def get_imported_patch_notes(import_path: str) -> None:
     with open(import_path, 'r') as file_imported:
         patch_notes_imported_json: JsonArray = json.load(file_imported)
 
-        patch_notes: List[PatchNote] = [
-            PatchNote(p) for p in patch_notes_imported_json]
+    patch_notes: PatchNotes = [
+        PatchNote(p) for p in patch_notes_imported_json]
 
-        # commit_patch_notes(REPO_DIR, PatchNote(patch_notes))
+    return patch_notes
 
 
 def get_log_files(log_path: str, log_pattern: str) -> List[str]:
@@ -146,7 +148,7 @@ def get_user_map(users_list_file: str) -> Dict[str, str]:
 def analyze_log_files(log_files: List[str], user_map: Dict[str, str]) -> AnalyzedLog:
     messages: JsonArray
     user: User
-    patch_notes: List[PatchNote] = list()
+    patch_notes: PatchNotes = list()
 
     for day_log_file in log_files:
         with open(day_log_file, 'r') as day_log:
@@ -228,7 +230,7 @@ def replace_by_regex_pattern(content: str, user_map: Dict[str, str]) -> str:
         content)
 
 
-def commit_patch_notes(repo_path: str, patch_notes: List[PatchNote]) -> None:
+def commit_patch_notes(repo_path: str, patch_notes: PatchNotes) -> None:
     repo: Repo = Repo(repo_path)
     send_time_str: str
 
@@ -242,19 +244,36 @@ def commit_patch_notes(repo_path: str, patch_notes: List[PatchNote]) -> None:
                           author_date=send_time_str)
 
 
+def print_patch_notes(patch_notes: PatchNotes) -> None:
+    for p in patch_notes:
+        print(Fore.MAGENTA + p.send_time.strftime(DATETIME_FORMAT))
+        print(Fore.WHITE + p.content, end="\n")
+
+        if not p.uploaded_files:
+            print(Fore.RED + "No file uploaded.", end="\n\n")
+        else:
+            print(Fore.YELLOW + str(p.uploaded_files), end="\n\n")
+
+
 if __name__ == "__main__":
 
-    if args.file_export:
-        print(f"export : {args.file_export}")
-        export_patch_notes(args.file_export)
+    patch_notes: PatchNotes
 
-    elif args.file_import:
+    if args.file_import:
         print(f"import : {args.file_import}")
-        commit_imported_patch_notes(args.file_import)
+        patch_notes = get_imported_patch_notes(args.file_import)
+        commit_patch_notes(REPO_DIR, PatchNote(patch_notes))
 
     else:
-        # full process
-        slack_commit()
+        patch_notes = get_patch_notes()
 
-    if args.log_mode:
-        pass
+        if args.file_export:
+            print(f"export : {args.file_export}")
+            export_patch_notes(args.file_export, patch_notes)
+        else:
+            # full process
+            print("parse log and commit")
+            slack_commit(patch_notes)
+
+    if args.print_mode:
+        print_patch_notes(patch_notes)
