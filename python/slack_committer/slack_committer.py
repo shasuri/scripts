@@ -31,7 +31,7 @@ USER_ID_REG_PATTERN: str = r"(<@)(U[A-Z0-9]{10})(>)"
 DATETIME_FORMAT: str = "%Y-%m-%d %H:%M:%S"
 
 RECENT_FILE_NAME: str = "recent_init.sql"
-RECENT_FILE_GLOB_PATTERN: str = "*init.sql"
+RECENT_FILE_GLOB_PATTERN: str = "*init*.sql"
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-e", "--export", action="store",
@@ -324,19 +324,18 @@ if __name__ == "__main__":
     if args.file_import:
         print(f"import : {args.file_import}")
         patch_notes = get_imported_patch_notes(args.file_import)
-    else:
-        patch_notes = get_patch_notes()
+        commit_patch_notes(patch_notes)
 
-    if args.file_export:
+    elif args.file_export:
         print(f"export : {args.file_export}")
+        patch_notes = get_patch_notes()
         export_patch_notes(args.file_export, patch_notes)
-    else:
-        if not(args.file_import or args.file_export):
-            # full process
-            print("parse log and commit")
 
-        if not args.print_mode:
-            commit_patch_notes(patch_notes)
-
-    if args.print_mode:
+    elif args.print_mode:
+        patch_notes = get_patch_notes()
         print_patch_notes(patch_notes)
+
+    else:
+        print("parse log and commit")
+        patch_notes = get_patch_notes()
+        commit_patch_notes(patch_notes)
