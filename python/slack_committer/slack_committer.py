@@ -6,7 +6,7 @@ from git import Repo
 import argparse
 from typing import List, Dict, Union
 
-JsonObject = Dict[str, Union[str, int, float]]
+JsonObject = Dict[str, Union[str, int, float, List, Dict]]
 JsonArray = List[JsonObject]
 
 
@@ -36,10 +36,6 @@ parser.add_argument("--import", action="store",
 parser.add_argument("--log", action="store_true",
                     dest="log_mode", help="print all log")
 
-parser.add_argument("--fileinfo", action="store_true",
-                    dest="fileinfo_mode", help="print file info")
-
-
 args = parser.parse_args()
 
 
@@ -53,11 +49,21 @@ class PatchNote:
         self.send_time = send_time
         self.uploaded_files = uploaded_files
 
-    def to_dict(self):
+    def to_dict(self) -> JsonObject:
         patch_note_dict = self.__dict__
         patch_note_dict["send_time"] = self.send_time.strftime(DATETIME_FORMAT)
 
         return patch_note_dict
+
+    @classmethod
+    def from_dict(cls, dict_in: JsonObject) -> 'PatchNote':
+        for key in dict_in:
+            if key == "send_time":
+                setattr(cls, key, datetime(dict_in[key]))
+            else:
+                setattr(cls, key, dict_in[key])
+
+        return cls
 
 
 class AnalyzedLog:
@@ -110,7 +116,8 @@ def get_patch_notes_json_format(patch_notes: List[PatchNote]) -> JsonArray:
 def commit_imported_patch_notes(import_path: str) -> None:
     with open(import_path, 'r') as file_imported:
         patch_notes_imported: JsonArray = json.load(file_imported)
-        # commit_patch_notes(REPO_DIR, patch_notes_imported)
+
+    # commit_patch_notes(REPO_DIR, PatchNote(patch_notes_imported))
 
 
 def get_log_files(log_path: str, log_pattern: str) -> List[str]:
@@ -247,7 +254,4 @@ if __name__ == "__main__":
         slack_commit()
 
     if args.log_mode:
-        pass
-
-    if args.fileinfo_mode:
         pass
