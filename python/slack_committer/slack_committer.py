@@ -1,8 +1,10 @@
 import os
+import shutil
 import argparse
 import json
 import re
 from glob import glob
+from fnmatch import fnmatch
 from git import Repo
 from datetime import datetime
 from typing import List, Dict, Union
@@ -28,6 +30,9 @@ PATCH_DELIMETER: str = "keeper_db"
 USER_ID_REG_PATTERN: str = r"(<@)(U[A-Z0-9]{10})(>)"
 DATETIME_FORMAT: str = "%Y-%m-%d %H:%M:%S"
 
+RECENT_FILE_NAME: str = "recent_init.sql"
+RECENT_FILE_GLOB_PATTERN: str = "*init.sql"
+
 parser = argparse.ArgumentParser()
 parser.add_argument("-e", "--export", action="store",
                     dest="file_export", help="export json array of PatchNote class")
@@ -35,8 +40,14 @@ parser.add_argument("-e", "--export", action="store",
 parser.add_argument("-i", "--import", action="store",
                     dest="file_import", help="import json array of PatchNote class")
 
+parser.add_argument("-d", "--directory", action="store",
+                    dest="origin_file_dir", help="set directory of original files, default is below the repository path")
+
 parser.add_argument("-p", "--print", action="store_true",
                     dest="print_mode", help="print all patch notes")
+
+parser.add_argument("-r", "--recent", action="store_true",
+                    dest="stage_recent", help="stage on recent init file")
 
 args = parser.parse_args()
 
@@ -90,8 +101,7 @@ class User:
 
 
 def slack_commit(patch_notes: PatchNotes):
-    pass
-    # commit_patch_notes(REPO_DIR, patch_notes)
+    commit_patch_notes(patch_notes)
 
 
 def get_patch_notes() -> PatchNotes:
@@ -116,7 +126,7 @@ def get_patch_notes_json_format(patch_notes: PatchNotes) -> JsonArray:
         indent=2, ensure_ascii=False)
 
 
-def get_imported_patch_notes(import_path: str) -> None:
+def get_imported_patch_notes(import_path: str) -> PatchNotes:
     with open(import_path, 'r') as file_imported:
         patch_notes_imported_json: JsonArray = json.load(file_imported)
 
@@ -231,8 +241,8 @@ def replace_by_regex_pattern(content: str, user_map: Dict[str, str]) -> str:
         content)
 
 
-def commit_patch_notes(repo_path: str, patch_notes: PatchNotes) -> None:
-    repo: Repo = Repo(repo_path)
+def commit_patch_notes(patch_notes: PatchNotes) -> None:
+    repo: Repo = Repo(REPO_DIR)
     send_time_str: str
 
     for p in patch_notes:
@@ -247,14 +257,42 @@ def commit_patch_notes(repo_path: str, patch_notes: PatchNotes) -> None:
 
 def stage_uploaded_files(repo: Repo, patch_note: PatchNote) -> None:
     staged_date: str = patch_note.send_time.strftime("%Y-%m-%d")
-    staged_dir: str = repo.working_tree_dir + '/' + staged_date
+    staged_dir: str = f"{REPO_DIR}/{staged_date}"
+    origin_dir: str = get_origin_dir()
+    recent_file: str
 
     os.mkdir(staged_dir)
 
-    for f in patch_note.uploaded_files:
-        os.replace(f, staged_dir + '/' + f)
+    move_uploaded_files(patch_note.uploaded_files, origin_dir, staged_dir)
 
     repo.git.add(staged_dir)
+
+    if args.stage_recent:
+        recent_file = get_recent_file(patch_note.uploaded_files)
+        if recent_file:
+            copy_recent_init_file(recent_file, staged_dir)
+
+
+def get_origin_dir() -> str:
+    return args.origin_file_dir if args.origin_file_dir else REPO_DIR
+
+
+def move_uploaded_files(uploaded_files: List[str], origin_dir: str, staged_dir: str) -> None:
+    for f in uploaded_files:
+        shutil.move(f"{origin_dir}/{f}", f"{staged_dir}/{f}")
+
+
+def get_recent_file(uploaded_files: List[str]) -> str:
+    for f in uploaded_files:
+        if fnmatch(f, RECENT_FILE_GLOB_PATTERN):
+            return f
+
+    return ""
+
+
+def copy_recent_init_file(recent_file: str, staged_dir: str) -> None:
+    shutil.copy(f"{staged_dir}/{recent_file}",
+                f"{REPO_DIR}/{RECENT_FILE_NAME}")
 
 
 def print_patch_notes(patch_notes: PatchNotes) -> None:
@@ -272,21 +310,26 @@ if __name__ == "__main__":
 
     patch_notes: PatchNotes
 
+    if args.file_import and args.file_export:
+        print("Choose either import and export mode or nothing.")
+        exit(1)
+
     if args.file_import:
         print(f"import : {args.file_import}")
         patch_notes = get_imported_patch_notes(args.file_import)
-        commit_patch_notes(REPO_DIR, PatchNote(patch_notes))
-
     else:
         patch_notes = get_patch_notes()
 
-        if args.file_export:
-            print(f"export : {args.file_export}")
-            export_patch_notes(args.file_export, patch_notes)
-        else:
+    if args.file_export:
+        print(f"export : {args.file_export}")
+        export_patch_notes(args.file_export, patch_notes)
+    else:
+        if not(args.file_import or args.file_export):
             # full process
             print("parse log and commit")
-            slack_commit(patch_notes)
+
+        if not args.print_mode:
+            commit_patch_notes(patch_notes)
 
     if args.print_mode:
         print_patch_notes(patch_notes)
