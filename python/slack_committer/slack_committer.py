@@ -97,8 +97,8 @@ def export_patch_notes(export_path: str) -> None:
     patch_notes: List[PatchNote] = get_patch_notes()
     patch_notes_json: JsonArray = get_patch_notes_json_format(patch_notes)
 
-    with open(export_path, 'w', encoding="utf-8") as f:
-        f.write(patch_notes_json)
+    with open(export_path, 'w') as file_exported:
+        file_exported.write(patch_notes_json)
 
 
 def get_patch_notes_json_format(patch_notes: List[PatchNote]) -> JsonArray:
@@ -107,8 +107,10 @@ def get_patch_notes_json_format(patch_notes: List[PatchNote]) -> JsonArray:
         indent=2, ensure_ascii=False)
 
 
-def commit_imported_patch_notes(import_path: str):
-    pass
+def commit_imported_patch_notes(import_path: str) -> None:
+    with open(import_path, 'r') as file_imported:
+        patch_notes_imported: JsonArray = json.load(file_imported)
+        # commit_patch_notes(REPO_DIR, patch_notes_imported)
 
 
 def get_log_files(log_path: str, log_pattern: str) -> List[str]:
@@ -132,12 +134,13 @@ def get_user_map(users_list_file: str) -> Dict[str, str]:
 
 
 def analyze_log_files(log_files: List[str], user_map: Dict[str, str]) -> AnalyzedLog:
-    patch_notes: List[PatchNote] = list()
+    messages: JsonArray
     user: User
+    patch_notes: List[PatchNote] = list()
 
     for day_log_file in log_files:
         with open(day_log_file, 'r') as day_log:
-            messages: JsonArray = json.load(day_log)
+            messages = json.load(day_log)
 
             for msg in messages:
                 if is_user_profile_included(msg) and msg["user"] not in user_map:
@@ -191,13 +194,15 @@ def convert_to_plaintext(content: str) -> str:
 
 
 def replace_dot_to_bar(content: str) -> str:
-    return content.replace('•', '-')\
+    return content\
+        .replace('•', '-')\
         .replace('◦', '-')\
         .replace('▪︎', '-')
 
 
 def replace_lgt_to_symbol(content: str) -> str:
-    return content.replace("&gt;", '>')\
+    return content\
+        .replace("&gt;", '>')\
         .replace("&lt;", '<')
 
 
@@ -235,6 +240,7 @@ if __name__ == "__main__":
 
     elif args.file_import:
         print(f"import : {args.file_import}")
+        commit_imported_patch_notes(args.file_import)
 
     else:
         # full process
