@@ -259,7 +259,6 @@ def stage_uploaded_files(repo: Repo, patch_note: PatchNote) -> None:
     staged_date: str = patch_note.send_time.strftime("%Y-%m-%d")
     staged_dir: str = f"{REPO_DIR}/{staged_date}"
     origin_dir: str = get_origin_dir()
-    recent_file: str
 
     try:
         make_staged_dir(staged_dir)
@@ -267,14 +266,10 @@ def stage_uploaded_files(repo: Repo, patch_note: PatchNote) -> None:
         return
 
     move_uploaded_files(patch_note.uploaded_files, origin_dir, staged_dir)
-
     repo.git.add(staged_dir)
 
     if args.stage_recent:
-        recent_file = get_recent_file(patch_note.uploaded_files)
-        if recent_file:
-            copy_recent_file(recent_file, staged_dir)
-            repo.git.add(f"{REPO_DIR}/{RECENT_FILE_NAME}")
+        stage_recent_file(repo, patch_note.uploaded_files, staged_dir)
 
 
 def get_origin_dir() -> str:
@@ -294,6 +289,14 @@ def make_staged_dir(staged_dir: str) -> None:
 def move_uploaded_files(uploaded_files: List[str], origin_dir: str, staged_dir: str) -> None:
     for f in uploaded_files:
         shutil.move(f"{origin_dir}/{f}", f"{staged_dir}/{f}")
+
+
+def stage_recent_file(repo: Repo, uploaded_files: List[str], staged_dir: str) -> None:
+    recent_file: str = get_recent_file(uploaded_files)
+
+    if recent_file:
+        copy_recent_file(recent_file, staged_dir)
+        repo.git.add(f"{REPO_DIR}/{RECENT_FILE_NAME}")
 
 
 def get_recent_file(uploaded_files: List[str]) -> str:
