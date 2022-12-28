@@ -262,11 +262,8 @@ def stage_uploaded_files(repo: Repo, patch_note: PatchNote) -> None:
     recent_file: str
 
     try:
-        os.mkdir(staged_dir)
-    except FileExistsError as ee:
-        print(f"{ee} : {staged_dir} already exists. Make dir process will be passed.")
-    except FileNotFoundError as nfe:
-        print(f"{nfe} : {staged_dir} path is not found. Exit this function.")
+        make_staged_dir(staged_dir)
+    except FileNotFoundError:
         return
 
     move_uploaded_files(patch_note.uploaded_files, origin_dir, staged_dir)
@@ -282,6 +279,16 @@ def stage_uploaded_files(repo: Repo, patch_note: PatchNote) -> None:
 
 def get_origin_dir() -> str:
     return args.origin_file_dir if args.origin_file_dir else REPO_DIR
+
+
+def make_staged_dir(staged_dir: str) -> None:
+    try:
+        os.mkdir(staged_dir)
+    except FileExistsError as ee:
+        print(f"{ee} : {staged_dir} already exists. Make dir process will be passed.")
+    except FileNotFoundError as nfe:
+        print(f"{nfe} : {staged_dir} path is not found. Staging is stopped.")
+        raise FileNotFoundError
 
 
 def move_uploaded_files(uploaded_files: List[str], origin_dir: str, staged_dir: str) -> None:
