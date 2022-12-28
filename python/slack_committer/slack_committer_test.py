@@ -1,5 +1,6 @@
 import unittest
 import slack_committer
+import os
 import fnmatch
 from pprint import pprint
 from typing import List, Dict
@@ -48,25 +49,21 @@ class ConvertTester(unittest.TestCase):
             userid_text, user_map), username_text)
 
 
-def print_patch_notes():
+class FileTester(unittest.TestCase):
+    def test_make_staged_dir_success(self):
+        staged_dir: str = "./test_make_staged_dir_success"
+        slack_committer.make_staged_dir(staged_dir)
 
-    analyzed_log: slack_committer.AnalyzedLog = slack_committer.analyze_log_files(
-        slack_committer.get_log_files(
-            slack_committer.LOG_DIR, slack_committer.LOG_GLOB_PATTERN),
-        slack_committer.get_user_map(slack_committer.USERS_LIST))
+        self.assertTrue(os.path.isdir(staged_dir))
 
-    slack_committer.convert_patch_notes_format(analyzed_log)
-    for p in analyzed_log.patch_notes:
-        print(p.send_time)
-        print(p.content)
-        print(p.uploaded_files)
-        print("\n===========================\n")
+        os.rmdir(staged_dir)
 
-    pprint(analyzed_log.user_map)
+    def test_make_staged_dir_not_found(self):
+        staged_dir: str = "/not_exist_path/test_make_staged_dir_not_found"
+
+        with self.assertRaises(FileNotFoundError):
+            slack_committer.make_staged_dir(staged_dir)
 
 
 if __name__ == "__main__":
-    if options.log_mode:
-        print_patch_notes()
-    else:
-        unittest.main()
+    unittest.main()
