@@ -77,21 +77,16 @@ class PatchNote:
         self.uploaded_files = uploaded_files
 
     def to_dict(self) -> JsonObject:
-        patch_note_dict = self.__dict__
+        patch_note_dict = vars(self)
         patch_note_dict["send_time"] = self.send_time.strftime(DATETIME_FORMAT)
 
         return patch_note_dict
 
-    @classmethod
-    def from_dict(cls, dict_in: JsonObject) -> 'PatchNote':
-        for key in dict_in:
-            if key == "send_time":
-                setattr(cls, key, datetime.strptime(
-                    dict_in[key], DATETIME_FORMAT))
-            else:
-                setattr(cls, key, dict_in[key])
 
-        return cls
+def from_dict_to_PatchNote(dict_in: JsonObject) -> PatchNote:
+    return PatchNote(dict_in["content"],
+                     datetime.strptime(dict_in["send_time"], DATETIME_FORMAT),
+                     dict_in["uploaded_files"])
 
 
 PatchNotes = List[PatchNote]
@@ -146,7 +141,8 @@ def get_imported_patch_notes(import_path: str) -> PatchNotes:
         patch_notes_imported_json: JsonArray = json.load(file_imported)
 
     patch_notes: PatchNotes = [
-        PatchNote.from_dict(p) for p in patch_notes_imported_json]
+        from_dict_to_PatchNote(p)
+        for p in patch_notes_imported_json]
 
     return patch_notes
 
@@ -328,7 +324,10 @@ def make_staged_dir(staged_dir: str) -> None:
 
 def move_uploaded_files(uploaded_files: List[str], origin_dir: str, staged_dir: str) -> None:
     for f in uploaded_files:
-        shutil.move(f"{origin_dir}/{f}", f"{staged_dir}/{f}")
+        try:
+            shutil.move(f"{origin_dir}/{f}", f"{staged_dir}/{f}")
+        except FileNotFoundError as nfe:
+            print(f"{nfe} : {origin_dir}/{f} not exist... skip this file.")
 
 
 def stage_recent_file(repo: Repo, uploaded_files: List[str], staged_dir: str) -> None:
