@@ -46,6 +46,9 @@ parser.add_argument("-d", "--directory", action="store",
 parser.add_argument("-p", "--print", action="store_true",
                     dest="print_mode", help="print all patch notes")
 
+parser.add_argument("-c", "--collect_all", action="store_true",
+                    dest="collect_all_mode", help="do not use delimeter and collect all logs")
+
 parser.add_argument("-r", "--recent", action="store_true",
                     dest="stage_recent", help="stage on recent file")
 
@@ -170,7 +173,7 @@ def analyze_log_files(log_files: List[str], user_map: Dict[str, str]) -> Analyze
                     user = get_user_from_profile(msg)
                     user_map[user.uid] = user.name
 
-                if is_patch_note(msg):
+                if args.collect_all_mode or is_patch_note(msg):
                     patch_notes.append(get_patch_note(msg))
 
     return AnalyzedLog(patch_notes, user_map)
@@ -195,11 +198,20 @@ def get_patch_note(msg: JsonObject) -> PatchNote:
     content: str = msg["text"]
     send_time: datetime = datetime.fromtimestamp(float(msg["ts"]))
 
-    uploaded_files: List[str] = [f["name"]
-                                 for f in msg["files"]
-                                 if "name" in f]
+    uploaded_files: List[str] = get_uploaded_files(msg)
 
     return PatchNote(content, send_time, uploaded_files)
+
+
+def get_uploaded_files(msg: JsonObject) -> List[str]:
+    uploaded_file_objects: JsonObject = msg.get("files")
+
+    if uploaded_file_objects:
+        return [f["name"]
+                for f in uploaded_file_objects
+                if "name" in f]
+    else:
+        return list()
 
 
 def convert_patch_notes_format(analyzed_log: AnalyzedLog) -> None:

@@ -1,5 +1,6 @@
 db_log
 test.py
 slack_file_downloader.py
+slack_log.json
 *.pyc
 
