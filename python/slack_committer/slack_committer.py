@@ -86,7 +86,8 @@ class PatchNote:
     def from_dict(cls, dict_in: JsonObject) -> 'PatchNote':
         for key in dict_in:
             if key == "send_time":
-                setattr(cls, key, datetime(dict_in[key]))
+                setattr(cls, key, datetime.strptime(
+                    dict_in[key], DATETIME_FORMAT))
             else:
                 setattr(cls, key, dict_in[key])
 
@@ -145,7 +146,7 @@ def get_imported_patch_notes(import_path: str) -> PatchNotes:
         patch_notes_imported_json: JsonArray = json.load(file_imported)
 
     patch_notes: PatchNotes = [
-        PatchNote(p) for p in patch_notes_imported_json]
+        PatchNote.from_dict(p) for p in patch_notes_imported_json]
 
     return patch_notes
 
