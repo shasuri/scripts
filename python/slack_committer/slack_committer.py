@@ -33,6 +33,17 @@ DATETIME_FORMAT: str = "%Y-%m-%d %H:%M:%S"
 RECENT_FILE_NAME: str = "recent_init.sql"
 RECENT_FILE_GLOB_PATTERN: str = "*init*.sql"
 
+README_FILE_NAME: str = "README.md"
+README_HEADER: str = """
+
+# Homepage-Database
+
+키퍼 홈페이지 데이터베이스
+
+## Recent Patch note
+### 
+"""
+
 parser = argparse.ArgumentParser()
 parser.add_argument("-e", "--export", action="store",
                     dest="file_export", help="export json array of PatchNote class")
@@ -260,11 +271,27 @@ def commit_patch_notes(patch_notes: PatchNotes) -> None:
     for p in patch_notes:
         send_time_str = p.send_time.strftime(DATETIME_FORMAT)
 
+        stage_recent_patchnote(repo, p.content)
         stage_uploaded_files(repo, p)
 
         repo.index.commit(p.content,
                           commit_date=send_time_str,
                           author_date=send_time_str)
+
+
+def stage_recent_patchnote(repo: Repo, patch_note_content: str):
+    readme_path: str = f"{REPO_DIR}/{README_FILE_NAME}"
+
+    update_readme(readme_path, patch_note_content)
+
+    repo.git.add(readme_path)
+
+
+def update_readme(readme_path: str, patch_note_content: str):
+    readme_content: str = README_HEADER + patch_note_content
+
+    with open(readme_path, 'w') as readme:
+        readme.write(readme_content)
 
 
 def stage_uploaded_files(repo: Repo, patch_note: PatchNote) -> None:
