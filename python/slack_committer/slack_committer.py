@@ -41,8 +41,7 @@ README_HEADER: str = """
 키퍼 홈페이지 데이터베이스
 
 ## Recent Patch note
-### 
-"""
+### """
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-e", "--export", action="store",
@@ -316,9 +315,9 @@ def make_staged_dir(staged_dir: str) -> None:
     try:
         os.mkdir(staged_dir)
     except FileExistsError as ee:
-        print(f"{ee} : {staged_dir} already exists. Make dir process will be passed.")
+        print(f"{ee}\n{staged_dir} already exists. Make dir process will be passed.")
     except FileNotFoundError as nfe:
-        print(f"{nfe} : {staged_dir} path is not found. Staging is stopped.")
+        print(f"{nfe}\n{staged_dir} path is not found. Staging is stopped.")
         raise FileNotFoundError
 
 
@@ -327,7 +326,7 @@ def move_uploaded_files(uploaded_files: List[str], origin_dir: str, staged_dir: 
         try:
             shutil.move(f"{origin_dir}/{f}", f"{staged_dir}/{f}")
         except FileNotFoundError as nfe:
-            print(f"{nfe} : {origin_dir}/{f} not exist... skip this file.")
+            print(f"{nfe}\n{origin_dir}/{f} not exist... skip this file.")
 
 
 def stage_recent_file(repo: Repo, uploaded_files: List[str], staged_dir: str) -> None:
